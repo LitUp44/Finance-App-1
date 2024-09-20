@@ -1,0 +1,46 @@
+# Function to get input for the user's financial details
+def get_financial_input():
+    print("Please enter your financial details.")
+    
+    # Get user's monthly income
+    income = float(input("What is your monthly income? $"))
+
+    # Get user's savings, investments, and expenses
+    savings = float(input("How much do you save per month? $"))
+    investments = float(input("How much do you invest per month? $"))
+    
+    # Ask for breakdown of expenses
+    print("\nNow, let's breakdown your monthly expenses.")
+    
+    housing = float(input("How much do you spend on housing (rent/mortgage) per month? $"))
+    utilities = float(input("How much do you spend on utilities per month? $"))
+    insurance = float(input("How much do you spend on insurance per month? $"))
+    transportation = float(input("How much do you spend on transportation (car payment, gas, etc.) per month? $"))
+    debt_payments = float(input("How much do you spend on debt payments per month? $"))
+    groceries = float(input("How much do you spend on groceries per month? $"))
+    clothes = float(input("How much do you spend on clothes per month? $"))
+    subscriptions = float(input("How much do you spend on subscriptions (phone, streaming services, etc.) per month? $"))
+    fun = float(input("How much do you spend on fun (trips, gifts, dining out, additional shopping, etc.) per month? $"))
+    
+    # Calculate total expenses
+    total_expenses = housing + utilities + insurance + transportation + debt_payments + groceries + clothes + subscriptions + fun
+    
+    # Calculate remaining balance after savings, investments, and expenses
+    remaining_balance = income - (savings + investments + total_expenses)
+    
+    # Print the summary
+    print("\n--- Monthly Financial Summary ---")
+    print(f"Monthly Income: ${income:.2f}")
+    print(f"Total Savings: ${savings:.2f}")
+    print(f"Total Investments: ${investments:.2f}")
+    print(f"Total Fixed Expenses: ${total_expenses:.2f}")
+    print(f"Remaining Balance: ${remaining_balance:.2f}")
+    
+    # Suggest action if remaining balance is negative
+    if remaining_balance < 0:
+        print("Warning: Your expenses exceed your income. Consider revisiting your budget to balance it.")
+    else:
+        print("You're on track! Consider investing more if your balance is healthy.")
+
+# Run the function to get user's input and show the summary
+get_financial_input()
