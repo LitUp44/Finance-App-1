@@ -74,7 +74,7 @@ def main():
         unsafe_allow_html=True
     )
 
-    st.title("Personal Finance Tracker 💰")
+    st.title("Personal Finance Tracker")
 
     # Add descriptive text below the title
     st.write("""
