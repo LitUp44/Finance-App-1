@@ -1,27 +1,60 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.express as px
 
-# Custom CSS for styling
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+def calculate_fixed_expense_ratio(income, fixed_expenses):
+    if income == 0:
+        return 0
+    return (fixed_expenses / income) * 100
 
-# Function to inject CSS directly
-def set_bg_style():
+def get_ratio_message(ratio):
+    if ratio > 80:
+        return "Your fixed expenses are quite high compared to your income. This can result in anxiety or stress as well as missing your goals."
+    elif 60 <= ratio <= 80:
+        return "Your fixed expenses are on the higher side but manageable, especially if you live in a high cost of living area or have a young family."
+    else:
+        return "You have a great fixed expense ratio leaving lots of money for play and investing."
+
+def create_pie_chart(data, title, colors=None):
+    fig = px.pie(
+        names=list(data.keys()),
+        values=list(data.values()),
+        title=title,
+        color_discrete_sequence=colors
+    )
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    fig.update_layout(showlegend=False)
+    return fig
+
+def create_bar_chart(data, title):
+    fig = px.bar(
+        x=list(data.keys()),
+        y=list(data.values()),
+        title=title,
+        labels={'x': 'Category', 'y': 'Amount ($)'},
+        text=[f'${value:.2f}' for value in data.values()],
+    )
+    fig.update_traces(marker_color='#2e6ef7', textposition='outside')
+    fig.update_layout(xaxis_tickangle=-45)
+    return fig
+
+def main():
+    # Apply custom styles
     st.markdown(
         """
         <style>
         /* Background color */
         .stApp {
             background-color: #f0f2f6;
+            background-image: url('https://your-image-url.com/image.jpg');
+            background-size: cover;
         }
         /* Title color */
-        .stApp h1 {
+        h1 {
             color: #2e6ef7;
         }
         /* Subheader color */
-        .stApp h2 {
+        h2 {
             color: #2e6ef7;
         }
         /* Button styling */
@@ -41,46 +74,6 @@ def set_bg_style():
         unsafe_allow_html=True
     )
 
-def calculate_fixed_expense_ratio(income, fixed_expenses):
-    if income == 0:
-        return 0
-    return (fixed_expenses / income) * 100
-
-def get_ratio_message(ratio):
-    if ratio > 80:
-        return "Your fixed expenses are quite high compared to your income. This can result in anxiety or stress as well as missing your goals."
-    elif 60 <= ratio <= 80:
-        return "Your fixed expenses are on the higher side but manageable, especially if you live in a high cost of living area or have a young family."
-    else:
-        return "You have a great fixed expense ratio leaving lots of money for play and investing."
-
-def create_pie_chart(data, title, colors=None):
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.pie(data.values(), labels=data.keys(), autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 12})
-    ax.set_title(title)
-    plt.axis('equal')
-    return fig
-
-def create_bar_chart(data, title):
-    fig, ax = plt.subplots(figsize=(8, 5))
-    bars = ax.bar(data.keys(), data.values(), color='#2e6ef7')
-    ax.set_title(title)
-    ax.set_ylabel('Amount ($)')
-    plt.xticks(rotation=45, ha='right')
-    
-    for bar in bars:
-        height = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01*max(data.values()),
-                f'${height:.2f}',
-                ha='center', va='bottom')
-        
-    plt.tight_layout()
-    return fig
-
-def main():
-    # Apply custom styles
-    set_bg_style()
-    
     st.title("Personal Finance Tracker 💰")
 
     # Add descriptive text below the title
@@ -116,7 +109,7 @@ def main():
         st.session_state.monthly_income = monthly_income
         savings = st.number_input("Amount allocated to savings:", min_value=0.0, step=10.0)
         st.session_state.savings = savings
-    
+
     with col2:
         investments = st.number_input("Amount allocated to investments:", min_value=0.0, step=10.0)
         st.session_state.investments = investments
@@ -158,7 +151,7 @@ def main():
             colors.append('#969696')  # Add color for 'Unallocated'
 
         fig = create_pie_chart(income_data, 'Income Allocation', colors=colors)
-        st.pyplot(fig)
+        st.plotly_chart(fig)
 
     # Second Section: Expense Breakdown
     st.header("Expense Breakdown")
@@ -233,7 +226,7 @@ def main():
 
             # Bar chart for expense breakdown
             fig = create_bar_chart(expense_data, 'Expense Breakdown')
-            st.pyplot(fig)
+            st.plotly_chart(fig)
 
             # Create a new pie chart with savings + investments, fixed expenses, variable expenses, unallocated
             total_income = st.session_state.monthly_income
@@ -244,16 +237,13 @@ def main():
                 'Fixed Expenses': fixed_expenses_total,
                 'Variable Expenses': variable_expenses_total,
             }
-            if unallocated > 0:
-                allocation_data['Unallocated'] = unallocated
-
-            # Pie chart colors
             colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
             if unallocated > 0:
+                allocation_data['Unallocated'] = unallocated
                 colors.append('#969696')
 
             fig2 = create_pie_chart(allocation_data, 'Income and Expenses Allocation', colors=colors)
-            st.pyplot(fig2)
+            st.plotly_chart(fig2)
 
             # Display insights text
             st.write("""
@@ -284,3 +274,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
