@@ -1,276 +1,268 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-def calculate_fixed_expense_ratio(income, fixed_expenses):
-    if income == 0:
-        return 0
-    return (fixed_expenses / income) * 100
+# Set page config for better layout
+st.set_page_config(layout="wide")
 
-def get_ratio_message(ratio):
-    if ratio > 80:
-        return "Your fixed expenses are quite high compared to your income. This can result in anxiety or stress as well as missing your goals."
-    elif 60 <= ratio <= 80:
-        return "Your fixed expenses are on the higher side but manageable, especially if you live in a high cost of living area or have a young family."
-    else:
-        return "You have a great fixed expense ratio leaving lots of money for play and investing."
+# Function to authenticate and connect to Google Sheets API
+def connect_to_google_sheet():
+    # Define the scope (what permissions are granted to the program)
+    scope = ["https://spreadsheets.google.com/feeds",
+             "https://www.googleapis.com/auth/drive"]
 
-def create_pie_chart(data, title, colors=None):
-    fig = px.pie(
-        names=list(data.keys()),
-        values=list(data.values()),
-        title=title,
-        color_discrete_sequence=colors
-    )
-    fig.update_traces(textposition='inside', textinfo='percent+label')
-    fig.update_layout(showlegend=False)
-    return fig
+    # Load credentials from your JSON file
+    # === MODIFY HERE ===
+    creds = ServiceAccountCredentials.from_json_keyfile_name('linear-pursuit-436211-u5-0a7f61a7f0e8.json', scope)
+    
+    # Authorize the client using the credentials
+    client = gspread.authorize(creds)
+    
+    # Open the target Google Sheet by its name
+    # === MODIFY HERE ===
+    sheet = client.open("Future Me Output").sheet1
+    
+    return sheet
 
-def create_bar_chart(data, title):
-    fig = px.bar(
-        x=list(data.keys()),
-        y=list(data.values()),
-        title=title,
-        labels={'x': 'Category', 'y': 'Amount ($)'},
-        text=[f'${value:.2f}' for value in data.values()],
-    )
-    fig.update_traces(marker_color='#2e6ef7', textposition='outside')
-    fig.update_layout(xaxis_tickangle=-45)
-    return fig
+# Function to record the output into the Google Sheet
+def record_output_to_google_sheet(data):
+    # Connect to the Google Sheet
+    sheet = connect_to_google_sheet()
+    
+    # Append the data (list) to a new row in the Google Sheet
+    sheet.append_row(data)
+    
+       # st.success("Data recorded to Google Sheet!")
 
-def main():
-    # Apply custom styles
+# Custom CSS for cleaner aesthetics
+def set_custom_styles():
     st.markdown(
         """
         <style>
         /* Background color */
         .stApp {
+            background-color: #fafafa;
+        }
+        /* General styles */
+        body {
+            color: #333333;
             background-color: #f0f2f6;
-            background-image: url('https://your-image-url.com/image.jpg');
-            background-size: cover;
         }
-        /* Title color */
-        h1 {
-            color: #2e6ef7;
+        /* Title and description */
+        .title {
+            color: #4B0082;  /* Indigo */
+            text-align: center;
+            margin-bottom: 20px;
         }
-        /* Subheader color */
-        h2 {
-            color: #2e6ef7;
+        .description {
+            background-color: #e6e6fa;  /* Lavender */
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            font-family: 'Verdana', sans-serif;  /* Added font style */
+        }
+        /* Section headers */
+        .section-header {
+            color: #4B0082;  /* Indigo */
+            margin-top: 30px;
+            margin-bottom: 10px;
+        }
+        /* Section2 headers */
+        .section2-header {
+            color: black;  /* Black */
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+        /* Text styling */
+        .stApp p, .stApp div, .stApp span, .stApp label {
+            color: #4f4f4f;
+            font-family: 'Verdana', sans-serif;
         }
         /* Button styling */
         .stButton>button {
-            color: white;
-            background-color: #2e6ef7;
+            color: #e6e6fa;
+            background-color: #e6e6fa; /* Changed for better contrast */
             border-radius: 5px;
-            padding: 0.5em 1em;
+            padding: 0.6em 1.2em;
+            font-weight: bold;
         }
-        /* Input styling */
+        /* Input field styling */
         input {
-            border: 1px solid #2e6ef7;
-            border-radius: 5px;
+            border: 2px solid #2e6ef7;
+            border-radius: 6px;
+        }
+        /* Expense Calculation Results Styling */
+        .stApp .stMarkdown h3 {
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            color: #2e6ef7;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    st.title("Personal Finance Tracker")
+# Function to create pie chart
+def create_pie_chart(data, title, colors=None):
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.pie(data.values(), labels=data.keys(), autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 12})
+    ax.set_title(title, fontweight="bold")
+    plt.axis('equal')
+    return fig
 
-    # Add descriptive text below the title
-    st.write("""
-    In this section we want to help understand you - today! What do you like & want to do with your money that helps you live the life you want to live today.
+# Function to create bar chart
+def create_bar_chart(data, title):
+    fig, ax = plt.subplots(figsize=(8, 5))
+    bars = ax.bar(data.keys(), data.values(), color='#2e6ef7')
+    ax.set_title(title, fontweight="bold")
+    ax.set_ylabel('Amount ($)', fontweight="bold")
+    plt.xticks(rotation=45, ha='right')
+    
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height + 0.01*max(data.values()),
+                f'${height:.2f}', ha='center', va='bottom')
+        
+    plt.tight_layout()
+    return fig
 
-    We will look at your big picture money allocation as well as your categories to give some insights on how you may be feeling month to month. This will let you discover where you can play around more with your long-term vision as well as how you can optimise this month or this year.
+def main():
+    # Apply custom styles
+    set_custom_styles()
 
-    For this first section: please reference your last three months of income & spending to average a normal month. Checking your credit card / debit card bills is a great way to go. We find this also makes it easier to be honest with expenses. In the second section you can break it down into rough groups to see how it usually plays out in smaller categories.
+    st.markdown("<h1 class='title'>The Current You Tool</h1>", unsafe_allow_html=True)
 
-    Before we get into the next section: there is no right or wrong ratio it depends on how much you already have in savings and investments but for reference usually if savings + investments is less than 10% you may be limited in what you can do in your ‘Future You’. But don’t worry - we’ll get there!
-    """)
+    # Description in the correct style
+    st.markdown(
+        "<div class='description'><h5>In this tool, we focus on getting to know your current financial habits...</h5></div>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<h2 class='section-header'>Step 1: Enter Your Monthly Expenses</h2>", unsafe_allow_html=True)
+
+    # New Section: Enter Post-Tax Income
+    st.markdown("<h4 class='section2-header'>Monthly Income</h4>", unsafe_allow_html=True)
+    post_tax_income = st.number_input("Enter your monthly post-tax income:", min_value=0.0, step=100.0)
 
     # Initialize session state variables
-    if 'total_expenses' not in st.session_state:
-        st.session_state.total_expenses = 0.0
-    if 'monthly_income' not in st.session_state:
-        st.session_state.monthly_income = 0.0
-    if 'savings' not in st.session_state:
-        st.session_state.savings = 0.0
-    if 'investments' not in st.session_state:
-        st.session_state.investments = 0.0
     if 'fixed_expenses' not in st.session_state:
-        st.session_state.fixed_expenses = []
+        st.session_state.fixed_expenses = {'Housing': 0.0, 'Utilities': 0.0, 'Insurance': 0.0, 'Transportation': 0.0, 'Debt Payments': 0.0, 'Groceries': 0.0}
     if 'variable_expenses' not in st.session_state:
-        st.session_state.variable_expenses = []
+        st.session_state.variable_expenses = {'Fun (trips, vacations etc.)': 0.0}
 
-    # First Section: Overview
-    st.header("Monthly Overview")
-    col1, col2 = st.columns(2)
-    with col1:
-        monthly_income = st.number_input("Enter your monthly income:", min_value=0.0, step=100.0)
-        st.session_state.monthly_income = monthly_income
-        savings = st.number_input("Amount allocated to savings:", min_value=0.0, step=10.0)
-        st.session_state.savings = savings
+    st.markdown("<h4 class='section2-header'>Monthly Fixed Expenses</h4>", unsafe_allow_html=True)
+    fixed_expenses_to_delete = []
+    for category in st.session_state.fixed_expenses:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            amount = st.number_input(f"{category}:", min_value=0.0, step=10.0, key=f"fixed_{category}")
+            st.session_state.fixed_expenses[category] = amount
+        with col2:
+            if st.button("Delete", key=f"delete_fixed_{category}"):
+                fixed_expenses_to_delete.append(category)
+    for category in fixed_expenses_to_delete:
+        del st.session_state.fixed_expenses[category]
 
-    with col2:
-        investments = st.number_input("Amount allocated to investments:", min_value=0.0, step=10.0)
-        st.session_state.investments = investments
-        total_expenses = st.number_input("Total monthly expenses:", min_value=0.0, step=10.0)
-        st.session_state.total_expenses = total_expenses
-
-    # Calculate and display results for the first section
-    if st.button("Calculate Overview"):
-        total_allocations = savings + investments + total_expenses
-
-        st.subheader("Results")
-        st.write(f"**Total Monthly Income:** ${monthly_income:.2f}")
-        st.write(f"**Total Allocations:** ${total_allocations:.2f}")
-        st.write(f"**Difference:** ${monthly_income - total_allocations:.2f}")
-
-        # Calculate savings and investments percentage
-        if monthly_income == 0:
-            savings_investments_percentage = 0
+    # Add new fixed expense category
+    new_fixed_category = st.text_input("Add a new fixed expense category:")
+    if st.button("Add Fixed Expense Category"):
+        if new_fixed_category:
+            if new_fixed_category not in st.session_state.fixed_expenses:
+                st.session_state.fixed_expenses[new_fixed_category] = 0.0
+            else:
+                st.warning("Category already exists.")
         else:
-            savings_investments_percentage = ((savings + investments) / monthly_income) * 100
+            st.warning("Please enter a category name.")
 
-        # Determine pie chart colors based on savings + investments percentage
-        if savings_investments_percentage > 10:
-            colors = ['#a1d99b', '#74c476', '#31a354']
-        elif 5 < savings_investments_percentage <= 10:
-            colors = ['#fed976', '#feb24c', '#fd8d3c']
+    st.markdown("<h4 class='section2-header'>Monthly Variable Expenses</h4>", unsafe_allow_html=True)
+    variable_expenses_to_delete = []
+    for category in st.session_state.variable_expenses:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            amount = st.number_input(f"{category}:", min_value=0.0, step=10.0, key=f"variable_{category}")
+            st.session_state.variable_expenses[category] = amount
+        with col2:
+            if st.button("Delete", key=f"delete_variable_{category}"):
+                variable_expenses_to_delete.append(category)
+    for category in variable_expenses_to_delete:
+        del st.session_state.variable_expenses[category]
+
+    # Add new variable expense category
+    new_variable_category = st.text_input("Add a new variable expense category:")
+    if st.button("Add Variable Expense Category"):
+        if new_variable_category:
+            if new_variable_category not in st.session_state.variable_expenses:
+                st.session_state.variable_expenses[new_variable_category] = 0.0
+            else:
+                st.warning("Category already exists.")
         else:
-            colors = ['#fc9272', '#fb6a4a', '#de2d26']
+            st.warning("Please enter a category name.")
 
-        # Pie chart for income allocation
-        income_data = {
-            'Savings': savings,
-            'Investments': investments,
-            'Expenses': total_expenses,
-        }
-        unallocated = max(0, monthly_income - total_allocations)
-        if unallocated > 0:
-            income_data['Unallocated'] = unallocated
-            colors.append('#969696')  # Add color for 'Unallocated'
+    # Input expense limit from Future You tool
+    st.markdown("<h2 class='section-header'>Step 2: Enter Expense Limit from 'Future You' Tool</h2>", unsafe_allow_html=True)
+    future_you_limit = st.number_input("Enter the monthly expense limit suggested by the Future You tool:", min_value=0.0, step=10.0)
 
-        fig = create_pie_chart(income_data, 'Income Allocation', colors=colors)
-        st.plotly_chart(fig)
-
-    # Second Section: Expense Breakdown
-    st.header("Expense Breakdown")
-    st.write("""
-    Now let’s move to part 2: how do your expenses break down across categories. As with the first section, averaging over 3 months will give you an honest look at how you normally spend money.
-    """)
-    st.subheader("Fixed Expenses")
-
-    # Fixed expenses default categories
-    fixed_expenses_data = {}
-    fixed_categories = ['Housing', 'Utilities', 'Insurance', 'Transportation', 'Debt Payments', 'Groceries']
-    for category in fixed_categories:
-        amount = st.number_input(f"{category}:", min_value=0.0, step=10.0)
-        fixed_expenses_data[category] = amount
-
-    # Initialize counters for additional expenses
-    if 'fixed_counter' not in st.session_state:
-        st.session_state.fixed_counter = 0
-    if 'variable_counter' not in st.session_state:
-        st.session_state.variable_counter = 0
-
-    # Function to add new fixed expense
-    if st.button("➕ Add Fixed Expense Category"):
-        st.session_state.fixed_counter += 1
-
-    # Display additional fixed expense inputs
-    for i in range(st.session_state.fixed_counter):
-        extra_category = st.text_input(f"Fixed Expense Category {i+1} Name:", key=f"fixed_extra_name_{i}")
-        extra_amount = st.number_input(f"{extra_category} Amount:", min_value=0.0, step=10.0, key=f"fixed_extra_amount_{i}")
-        if extra_category:
-            fixed_expenses_data[extra_category] = extra_amount
-
-    st.subheader("Variable Expenses")
-
-    # Variable expenses default categories
-    variable_expenses_data = {}
-    variable_categories = ['Fun (trips, vacations etc.)']
-    for category in variable_categories:
-        amount = st.number_input(f"{category}:", min_value=0.0, step=10.0)
-        variable_expenses_data[category] = amount
-
-    # Function to add new variable expense
-    if st.button("➕ Add Variable Expense Category"):
-        st.session_state.variable_counter += 1
-
-    # Display additional variable expense inputs
-    for i in range(st.session_state.variable_counter):
-        extra_category = st.text_input(f"Variable Expense Category {i+1} Name:", key=f"variable_extra_name_{i}")
-        extra_amount = st.number_input(f"{extra_category} Amount:", min_value=0.0, step=10.0, key=f"variable_extra_amount_{i}")
-        if extra_category:
-            variable_expenses_data[extra_category] = extra_amount
-
-    # Calculate and display results for the second section
+    # Calculate total expenses
     if st.button("Calculate Expenses"):
-        # Combine expenses
-        expense_data = {**fixed_expenses_data, **variable_expenses_data}
-        calculated_total_expenses = sum(expense_data.values())
+        fixed_expenses_data = st.session_state.fixed_expenses
+        variable_expenses_data = st.session_state.variable_expenses
 
-        if abs(calculated_total_expenses - st.session_state.total_expenses) > 0.01:  # Allow for small floating-point differences
-            st.warning(f"The sum of your expenses (${calculated_total_expenses:.2f}) does not match the total expenses you entered (${st.session_state.total_expenses:.2f}). Please adjust your entries.")
+        total_fixed = sum(fixed_expenses_data.values())
+        total_variable = sum(variable_expenses_data.values())
+        total_expenses = total_fixed + total_variable
+
+        st.markdown("<h2 class='section-header'>Results</h2>", unsafe_allow_html=True)
+
+        st.markdown("<h5>Total Monthly Expenses (Current You):<b> ${:.2f}</b></h5>".format(total_expenses), unsafe_allow_html=True)
+        st.markdown("<h5>Expense Limit (Future You):<b> ${:.2f}</b></h5>".format(future_you_limit), unsafe_allow_html=True)
+
+        difference = total_expenses - future_you_limit
+        if difference < 0:
+            st.markdown("<h4>Great news! Your expenses are ${:.2f} under your Future You limit...</h4>".format(abs(difference)), unsafe_allow_html=True)
+        elif difference == 0:
+            st.markdown("<h4>Your expenses match your Future You limit...</h4>", unsafe_allow_html=True)
         else:
-            fixed_expenses_total = sum(fixed_expenses_data.values())
-            variable_expenses_total = sum(variable_expenses_data.values())
-            fixed_expense_ratio = calculate_fixed_expense_ratio(st.session_state.monthly_income, fixed_expenses_total)
+            st.markdown("<h4>Your expenses are ${:.2f} over your Future You limit...</h4>".format(difference), unsafe_allow_html=True)
 
-            st.subheader("Fixed Expense Totals")
-            st.write(f"Your total fixed expenses are: **${fixed_expenses_total:.2f}**")
+        # Save data to Google Sheets
+        record_output_to_google_sheet([
+            post_tax_income, total_fixed, total_variable, total_expenses, future_you_limit, difference
+        ])  # Save these fields in a new row
 
-            st.subheader("Fixed Expense Ratio")
-            st.write(f"Your fixed expense ratio is: **{fixed_expense_ratio:.2f}%**")
-            st.write(get_ratio_message(fixed_expense_ratio))
+        if total_expenses > 0:
+            fixed_ratio = total_fixed / total_expenses
+        else:
+            fixed_ratio = 0
 
-            # Bar chart for expense breakdown
-            fig = create_bar_chart(expense_data, 'Expense Breakdown')
-            st.plotly_chart(fig)
+        if fixed_ratio > 0.65:
+            st.write("Your fixed expenses are high.")
+        else:
+            st.write("You have a good fixed-to-variable expense ratio.")
 
-            # Create a new pie chart with savings + investments, fixed expenses, variable expenses, unallocated
-            total_income = st.session_state.monthly_income
-            savings_investments = st.session_state.savings + st.session_state.investments
-            unallocated = max(0, total_income - (savings_investments + calculated_total_expenses))
+        if post_tax_income > 0:
+            remaining_income = post_tax_income - total_expenses
+            if remaining_income < 0:
+                remaining_income = 0
             allocation_data = {
-                'Savings + Investments': savings_investments,
-                'Fixed Expenses': fixed_expenses_total,
-                'Variable Expenses': variable_expenses_total,
+                'Fixed Expenses': total_fixed,
+                'Variable Expenses': total_variable,
+                'Remaining Income': remaining_income
             }
-            colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
-            if unallocated > 0:
-                allocation_data['Unallocated'] = unallocated
-                colors.append('#969696')
+            fig = create_pie_chart(allocation_data, 'Income & Expenses Breakdown')
+            st.pyplot(fig)
+        else:
+            allocation_data = {
+                'Fixed Expenses': total_fixed,
+                'Variable Expenses': total_variable
+            }
+            fig = create_pie_chart(allocation_data, 'Expenses Breakdown')
+            st.pyplot(fig)
 
-            fig2 = create_pie_chart(allocation_data, 'Income and Expenses Allocation', colors=colors)
-            st.plotly_chart(fig2)
-
-            # Display insights text
-            st.write("""
-            **Insights:**
-
-            Fixed expenses: Usually if your fixed expenses, the expenses you can’t easily change month to month, are more than 60-70% of your total take-home income you can feel anxiety around your money. This is because you have less and less to play with when big expenses come up, you over exceed your usual spending in a small category, like groceries, or feel that the money is going out as quickly as it’s coming in.
-
-            Savings & Investing: A great rule of thumb is to save 10-20% of your income. Once you’ve maxed out your rainy day savings (3-6 months of your income) you can switch almost all of that money to long-term investments.
-
-            Fun money! This is the money that can make life feel worth living. Be that shopping, vacations, your morning Starbucks; this is your money to do what you want with that changes month-to-month. Our finger in the air suggestion is somewhere around 10-30% of your take home income.
-            """)
-
-            # Calculate savings and investments percentage
-            if total_income == 0:
-                savings_investments_percentage = 0
-            else:
-                savings_investments_percentage = ((savings_investments) / total_income) * 100
-
-            # Display the appropriate message based on the user's financial ratios
-            if savings_investments_percentage >= 10 and fixed_expense_ratio <= 70:
-                st.write("**Well done, you're within this range!**")
-            elif savings_investments_percentage >= 10 or fixed_expense_ratio <= 70:
-                st.write("**You are close to hitting this goal.**")
-            elif savings_investments_percentage <= 5 and fixed_expense_ratio >= 75:
-                st.write("**Getting closer to the goal might improve how you feel about money day-to-day.**")
-            else:
-                st.write("**Keep working towards your financial goals!**")
+        all_expenses_data = {**fixed_expenses_data, **variable_expenses_data}
+        fig2 = create_bar_chart(all_expenses_data, 'Expense Breakdown by Category')
+        st.pyplot(fig2)
 
 if __name__ == "__main__":
     main()
